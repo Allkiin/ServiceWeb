@@ -1,0 +1,191 @@
+TESTS À FAIRE - REST-MONGODB
+============================
+
+PRÉALABLE
+---------
+1. MongoDB lancé : docker ps | grep mongo (Status: Up)
+2. Serveur lancé : npm start (écoute sur http://localhost:8000)
+3. Insomnia collection importée
+
+TEST 1: ROOT
+-----------
+GET /
+→ Réponse: "API REST - MongoDB"
+→ Status: 200
+
+TEST 2: CATÉGORIES (CREATE)
+----------------------------
+POST /categories
+Body: { "name": "RPG" }
+→ Réponse: { "_id": "...", "name": "RPG" }
+→ Status: 201 ou 200
+→ Copier l'_id pour la suite (ex: CATEGORY_ID_1)
+
+POST /categories
+Body: { "name": "Action" }
+→ Réponse: { "_id": "...", "name": "Action" }
+→ Status: 200
+→ Copier l'_id (ex: CATEGORY_ID_2)
+
+TEST 3: CATÉGORIES (READ)
+--------------------------
+GET /categories
+→ Réponse: Array avec 2 catégories
+→ Status: 200
+
+GET /categories/CATEGORY_ID_1
+→ Réponse: { "_id": "...", "name": "RPG" }
+→ Status: 200
+
+GET /categories/invalid-id
+→ Réponse: { "message": "Invalid id format" }
+→ Status: 400
+
+GET /categories/507f1f77bcf86cd799439999 (id valide mais inexistant)
+→ Réponse: { "message": "Not found" }
+→ Status: 404
+
+TEST 4: CATÉGORIES (UPDATE + DELETE)
+-------------------------------------
+PUT /categories/CATEGORY_ID_1
+Body: { "name": "RPG Premium" }
+→ Réponse: { "_id": "...", "name": "RPG Premium" }
+→ Status: 200
+
+DELETE /categories/CATEGORY_ID_2
+→ Réponse: { "_id": "...", "name": "Action" }
+→ Status: 200
+
+GET /categories
+→ Réponse: Array avec 1 seule catégorie (RPG Premium)
+→ Status: 200
+
+TEST 5: PRODUITS (CREATE)
+--------------------------
+POST /products
+Body: {
+  "name": "The Witcher 3",
+  "about": "RPG action fantasy",
+  "price": 29.99,
+  "categoryIds": ["CATEGORY_ID_1"]  // L'ID de RPG
+}
+→ Réponse: { "_id": "...", "name": "The Witcher 3", ... }
+→ Status: 200
+→ Copier l'_id (ex: PRODUCT_ID_1)
+
+POST /products
+Body: {
+  "name": "Cyberpunk 2077",
+  "about": "Futuristic RPG shooter",
+  "price": 39.99,
+  "categoryIds": ["CATEGORY_ID_1"]
+}
+→ Réponse: { "_id": "...", "name": "Cyberpunk 2077", ... }
+→ Status: 200
+→ Copier l'_id (ex: PRODUCT_ID_2)
+
+TEST 6: PRODUITS (READ + AGRÉGATION)
+-------------------------------------
+GET /products
+→ Réponse: Array avec 2 produits, CHAQUE produit contient:
+    - _id, name, about, price, categoryIds
+    - "categories": Array avec les objets Category (jointure MongoDB)
+→ Status: 200
+→ IMPORTANT: Vérifier que "categories" contient les noms des catégories
+
+GET /products/PRODUCT_ID_1
+→ Réponse: 1 produit complet avec categories joint
+→ Status: 200
+→ IMPORTANT: Vérifier que "categories" est présent et rempli
+
+GET /products/PRODUCT_ID_1?invalid=query (pas de paramètres supportés pour l'instant)
+→ Réponse: Quand même le produit
+→ Status: 200
+
+TEST 7: PRODUITS (VALIDATION)
+-------------------------------
+POST /products
+Body: { "name": "Game", "about": "Test" }  // Missing price
+→ Réponse: Erreur Zod avec détails
+→ Status: 400
+
+POST /products
+Body: {
+  "name": "Game",
+  "about": "Test",
+  "price": -10,  // Prix négatif
+  "categoryIds": []
+}
+→ Réponse: Erreur Zod (price doit être positif)
+→ Status: 400
+
+TEST 8: PRODUITS (UPDATE)
+--------------------------
+PUT /products/PRODUCT_ID_1
+Body: {
+  "name": "The Witcher 3 Wild Hunt",
+  "about": "RPG action fantasy complète",
+  "price": 19.99,
+  "categoryIds": []
+}
+→ Réponse: Produit mis à jour, SANS catégories maintenant
+→ Status: 200
+
+PATCH /products/PRODUCT_ID_2
+Body: { "price": 29.99 }  // Mise à jour partielle
+→ Réponse: Produit avec price à 29.99, autres champs inchangés
+→ Status: 200
+
+TEST 9: PRODUITS (DELETE)
+--------------------------
+DELETE /products/PRODUCT_ID_1
+→ Réponse: Produit supprimé
+→ Status: 200
+
+GET /products/PRODUCT_ID_1
+→ Réponse: { "message": "Not found" }
+→ Status: 404
+
+GET /products
+→ Réponse: Array avec 1 seul produit (PRODUCT_ID_2)
+→ Status: 200
+
+TEST 10: WEBSOCKETS (TEMPS RÉEL)
+---------------------------------
+1. Ouvrir http://localhost:8000 dans un navigateur (Tab A)
+2. Ouvrir http://localhost:8000 dans un second navigateur (Tab B)
+3. Créer un produit via Insomnia (POST /products)
+4. Vérifier que:
+   - Une notification "Nouveau produit" apparaît dans Tab A
+   - Une notification "Nouveau produit" apparaît dans Tab B
+   - Le produit est ajouté à la liste dans les deux onglets
+5. Modifier le produit (PATCH /products/:id)
+   - Notification "Produit modifié" dans les deux onglets
+   - Produit mis à jour dans la liste
+6. Supprimer le produit (DELETE /products/:id)
+   - Notification "Produit supprimé" dans les deux onglets
+   - Produit enlevé de la liste
+
+TEST 11: CAS D'ERREURS (EDGE CASES)
+------------------------------------
+DELETE /products/invalid-id
+→ Status: 400, message: "Invalid id format"
+
+DELETE /products/507f1f77bcf86cd799439999
+→ Status: 404, message: "Not found"
+
+PUT /categories/invalid-id
+→ Status: 400, message: "Invalid id format"
+
+POST /categories
+Body: { "name": "" }
+→ Status: 400 (string vide invalide selon Zod)
+
+RÉSUMÉ
+------
+✓ Toutes les routes CRUD existent
+✓ Agrégation MongoDB join categories correctement
+✓ Validation Zod fonctionne
+✓ Codes de statut HTTP corrects
+✓ WebSockets en temps réel fonctionnent
+✓ Gestion d'erreurs cohérente
