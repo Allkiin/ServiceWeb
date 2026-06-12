@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marketplace - Real-time</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+    h1 { color: #333; }
+    #products-list { list-style: none; padding: 0; }
+    #products-list li {
+      border: 1px solid #ddd;
+      padding: 12px;
+      margin: 6px 0;
+      border-radius: 6px;
+      background: #f9f9f9;
+    }
+    .notification {
+      background: #d4edda;
+      border: 1px solid #c3e6cb;
+      color: #155724;
+      padding: 10px 14px;
+      margin: 6px 0;
+      border-radius: 6px;
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .status { color: #666; font-style: italic; }
+  </style>
+</head>
+<body>
+  <h1>Marketplace - Produits (Temps réel)</h1>
+  <p class="status" id="status">Connexion...</p>
+
+  <div id="notifications"></div>
+
+  <h2>Liste des produits</h2>
+  <ul id="products-list"></ul>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const list = document.getElementById("products-list");
+    const notifications = document.getElementById("notifications");
+    const status = document.getElementById("status");
+
+    socket.on("connect", () => {
+      status.textContent = "Connecté au serveur (WebSocket actif)";
+    });
+
+    socket.on("disconnect", () => {
+      status.textContent = "Déconnecté du serveur";
+    });
+
+    // Load initial products
+    fetch("/products")
+      .then(r => r.json())
+      .then(products => {
+        products.forEach(renderProduct);
+      });
+
+    socket.on("products", ({ event, product }) => {
+      const div = document.createElement("div");
+      div.className = "notification";
+      const labels = { created: "Nouveau produit", updated: "Produit modifié", deleted: "Produit supprimé" };
+      div.textContent = `${labels[event] || event}: ${product.name} (${product.price}€)`;
+      notifications.prepend(div);
+      setTimeout(() => div.remove(), 5000);
+
+      if (event === "created") {
+        renderProduct(product);
+      } else if (event === "deleted") {
+        document.getElementById(`product-${product._id}`)?.remove();
+      } else if (event === "updated") {
+        const li = document.getElementById(`product-${product._id}`);
+        if (li) li.innerHTML = productHTML(product);
+      }
+    });
+
+    function productHTML(product) {
+      const cats = (product.categories || []).map(c => c.name).join(", ") || "—";
+      return `<strong>${product.name}</strong> — ${product.about} — <em>${product.price}€</em> | Catégories: ${cats}`;
+    }
+
+    function renderProduct(product) {
+      const li = document.createElement("li");
+      li.id = `product-${product._id}`;
+      li.innerHTML = productHTML(product);
+      list.appendChild(li);
+    }
+  </script>
+</body>
+</html>

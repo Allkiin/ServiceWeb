@@ -1,0 +1,15 @@
+{
+  "name": "rest-mongodb",
+  "version": "1.0.0",
+  "description": "API REST avec MongoDB, Express, Zod et Socket.io",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongodb": "^6.3.0",
+    "socket.io": "^4.6.1",
+    "zod": "^3.22.4"
+  }
+}
