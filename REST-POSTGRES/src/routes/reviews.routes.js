@@ -6,36 +6,11 @@ const { CreateReviewSchema, PatchReviewSchema } = require("../schemas/review.sch
 
 const router = express.Router();
 
-/**
- * @swagger
- * /reviews:
- *   get:
- *     summary: Get all reviews
- *     responses:
- *       200:
- *         description: List of reviews
- */
 router.get("/", async (req, res) => {
   const reviews = await sql`SELECT * FROM reviews`;
   res.send(reviews);
 });
 
-/**
- * @swagger
- * /reviews/{id}:
- *   get:
- *     summary: Get a review by ID
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       200:
- *         description: Review
- *       404:
- *         description: Not found
- */
 router.get("/:id", async (req, res) => {
   const review = await sql`SELECT * FROM reviews WHERE id = ${req.params.id}`;
 
@@ -46,30 +21,6 @@ router.get("/:id", async (req, res) => {
   res.send(review[0]);
 });
 
-/**
- * @swagger
- * /reviews:
- *   post:
- *     summary: Create a review (updates product average score)
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               user_id: { type: integer }
- *               product_id: { type: integer }
- *               score: { type: integer, minimum: 1, maximum: 5 }
- *               content: { type: string }
- *     responses:
- *       200:
- *         description: Created review
- *       400:
- *         description: Validation error
- *       404:
- *         description: User or product not found
- */
 router.post("/", async (req, res) => {
   const result = CreateReviewSchema.safeParse(req.body);
 
@@ -100,24 +51,6 @@ router.post("/", async (req, res) => {
   res.send(review[0]);
 });
 
-/**
- * @swagger
- * /reviews/{id}:
- *   put:
- *     summary: Replace a review (score and content required)
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       200:
- *         description: Updated review
- *       400:
- *         description: Validation error
- *       404:
- *         description: Not found
- */
 router.put("/:id", async (req, res) => {
   const result = z.object({
     score: z.number().int().min(1).max(5),
@@ -146,24 +79,6 @@ router.put("/:id", async (req, res) => {
   res.send(review[0]);
 });
 
-/**
- * @swagger
- * /reviews/{id}:
- *   patch:
- *     summary: Partially update a review
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       200:
- *         description: Updated review
- *       400:
- *         description: Validation error
- *       404:
- *         description: Not found
- */
 router.patch("/:id", async (req, res) => {
   const result = PatchReviewSchema.safeParse(req.body);
 
@@ -189,22 +104,6 @@ router.patch("/:id", async (req, res) => {
   res.send(review[0]);
 });
 
-/**
- * @swagger
- * /reviews/{id}:
- *   delete:
- *     summary: Delete a review (updates product average score)
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       200:
- *         description: Deleted review
- *       404:
- *         description: Not found
- */
 router.delete("/:id", async (req, res) => {
   const review = await sql`DELETE FROM reviews WHERE id = ${req.params.id} RETURNING *`;
 

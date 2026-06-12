@@ -1,0 +1,210 @@
+Débutons la réalisation de notre API REST en NodeJS
+Pour commencer, créons un dossier REST-POSTGRES où nous allons créer tous les fichiers en rapport avec le service Web.
+Pour initier le projet, lancer la commande :
+npm init
+Nous allons utiliser la librairie express, lancer la commande :
+npm install express
+
+Créons un fichier "server.js" qui contiendra toute la logique de notre service REST.
+Réalisons notre première
+ressource
+Comme pour notre service SOAP, nous utiliserons la base de
+donnée PostgresSQL et le même init.sql, nous allons donc relancer
+celle-ci via Docker pour éviter d'avoir les données de l'ancien
+service.
+Remove postgres container.
+2 docker container rm postgres -f
+3
+4
+6
+docker run --name postgres -p 5432:5432 \
+-e POSTGRES
+_USER=user -e POSTGRES_PASSWORD=password -e POSTGRES
+_DB=mydb \
+-v ./init.sql:/docker-entrypoint-initdb.d/init.sql -d postgres
+Nous allons faire la ressource "/products" qui représentera tous les
+jeux vidéos de la Marketplace. REST n'a pas de système de schéma
+comme SOAP par défaut, on utilise alors une librairie, ici nous
+allons utiliser la librairie Zod.
+1 npm install postgres zod
+Réalisons notre première
+ressource - 2
+Réalisons le Hello World de Express et vérifions d'avoir Hello World
+en ouvrant le navigateur. Ajoutons aussi le parser JSON pour avoir
+accès au JSON via request.body.
+1 const express = require ("express") ;
+2
+const app = express();
+3 const port = 8000;
+4
+5
+app. use (express. json ());
+6
+7 app.get("/", (req, res) => {
+8
+res. send( "Hello World!") ;
+9 } ) ;
+10
+11
+app. listen(port, () => {
+12
+console.log( Listening on http://localhost:$(port}');
+13 });
+Ajoutons à nouveau la logique de la base de donnée en utilisant la
+librairie "postgres" comme dans notre précédent service.
+Réalisons notre première ressource - 3
+Ajoutons la librairie "zod" pour réaliser notre premier schéma "ProductSchema". On crée un schéma via la méthode "object", chaque propriété de l'objet passé en argument peut contenir un type de Zod.
+Par exemple, pour price, on utilise z.number() pour que Zod puisse vérifier que price est bien un nombre. Les types peuvent avoir des comportements particuliers comme ici avec la méthode "positive" nous demandons à Zod de vérifier si price est bien un nombre positif. (Évitons de permettre des prix négatifs sur notre Marketplace !)
+Réalisons notre première ressource - 4
+Cela donne ce résultat :
+const express = require("express");
+const postgres = require("postgres");
+const z = require("zod");
+
+const app = express();
+const port = 8000;
+const sql = postgres({ db: "mydb", user: "user", password: "password" });
+
+app.use(express.json());
+
+// Schemas
+const ProductSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  about: z.string(),
+  price: z.number().positive(),
+});
+
+app.get("/", (req, res) => {
+  res.send("Hello World!");
+});
+
+app.listen(port, () => {
+  console.log(Listening on http://localhost:${port});
+});
+Réalisons notre première ressource - 5
+Nous allons créer toutes les routes pour notre ressource "products" avec express, pour une ressource, voici les actions classiques à réaliser :
+GET products/:id - Récupère un produit
+GET products/ - Récupère tous les produits, en production, on utilise un système de pagination pour ne renvoyer par exemple que 10 par 10 les ressources.
+POST products/ - Crée un nouveau produit grâce au body de la requête HTTP.
+DELETE products/:id - Supprime un produit.
+Par simplicité, nous ne ferons pas la méthode PUT et PATCH, à la slide suivante, nous allons réaliser la route POST.
+Réalisons notre première ressource - 6
+Ajoutons la logique de la route POST pour créer un produit en vérifiant le body de la requête grâce à Zod pour valider notre schéma avant de l'envoyer à la base de donnée.
+Nous allons pour ça créer un schéma spécial pour la requête POST en utilisant la méthode "z.omit()" pour retirer la propriété "id" qui n'existe pas pour un nouveau produit.
+Attention à bien utiliser l'objet "response" avec la méthode "status" de express pour gérer les cas d'erreur avec les bons code de statut.
+Ici, si le schéma ne valide pas le body de la requête, quelle réponse doit-on renvoyer ?
+Réalisons notre première ressource - 7
+// Schemas
+const ProductSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  about: z.string(),
+  price: z.number().positive(),
+});
+const CreateProductSchema = ProductSchema.omit({ id: true });
+
+app.post("/products", async (req, res) => {
+  const result = await CreateProductSchema.safeParse(req.body);
+
+  // If Zod parsed successfully the request body
+  if (result.success) {
+    const { name, about, price } = result.data;
+
+    const product = await sql
+    INSERT INTO products (name, about, price)
+    VALUES (${name}, ${about}, ${price})
+    RETURNING *
+    ;
+
+    res.send(product[0]);
+  } else {
+    res.status(400).send(result);
+  }
+});
+Réalisons notre première ressource - 8
+Sur Insomnia, créons une collection "Products" pour mettre toutes nos futures requêtes. Créons une requête POST sur la route /products avec pour body du JSON.
+Réalisons notre première ressource - 9
+Créons les routes pour récupérer tous les produits ou un seul.
+Attention, pour récupérer un produit on va donc créer la route /products/:id et utiliser request.params.id pour accéder à l'ID.
+Un cas d'erreur est possible ici, qu'est-ce que c'est ? Quel est le statut de la requête ?
+N'oubliez pas de tester avec Insomnia pour chaque route.
+Réalisons notre première ressource - 10
+Il faut vérifier si l'ID est bien dans la base de donnée. Sinon nous devons renvoyer une erreur 404.
+app.get("/products", async (req, res) => {
+  const products = await sql
+    SELECT * FROM products
+    ;
+
+  res.send(products);
+});
+
+app.get("/products/:id", async (req, res) => {
+  const product = await sql
+    SELECT * FROM products WHERE id=${req.params.id}
+    ;
+
+  if (product.length > 0) {
+    res.send(product[0]);
+  } else {
+    res.status(404).send({ message: "Not found" });
+  }
+});
+Réalisons notre première ressource - 11
+Ajoutons la route DELETE pour supprimer un produit.
+Avec REST, on part du principe que pour chaque action, on renvoie la version mise à jour de la ressource. C'est pour cela qu'ici nous retournons la ressource qui vient d'être supprimée.
+app.delete("/products/:id", async (req, res) => {
+  const product = await sql
+    DELETE FROM products
+    WHERE id=${req.params.id}
+    RETURNING *
+    ;
+
+  if (product.length > 0) {
+    res.send(product[0]);
+  } else {
+    res.status(404).send({ message: "Not found" });
+  }
+});
+Exercice 1 : Créer la ressource Users
+Maintenant que vous êtes un expert du REST, essayez d'ajouter une nouvelle ressource Users. La ressource doit avoir un nom d'utilisateur, un mot de passe et un email.
+Attention, on ne doit jamais récupérer le mot de passe de l'utilisateur dans les réponses du serveur et le mot de passe ne doit pas être en clair en base de donnée (SHA512).
+Vous devez ajouter les actions PUT et PATCH pour cette ressource, attention à bien gérer les cas d'erreurs.
+(PUT - Update toute la ressource, PATCH - Update partiellement ; par exemple seulement l'email).
+Appelez-moi pour que l'on puisse vérifier ensemble que tout est bon.
+Et si on automatisait tout ça ?
+Une impression de déjà-vu non ? Oui, REST ayant un fonctionnement suivant un système bien huilé, des développeurs ont vite vu qu'ils pouvaient automatiser la création de route REST.
+Plusieurs projets existent, un très connu pour sa rapidité et sa facilité d'utilisation est FeathersJS.
+Ce n'est pas demandé pour notre TP, mais en production évitons de réinventer la roue !
+(Fun fact : c'est avec cette technologie que j'ai réalisé l'API de ma première Startup avec une base de donnée MongoDB).
+Exercice 2 - Intégrer un service Web
+Maintenant que nous avons réaliser plusieurs service Web en SOAP ou REST, nous allons intégrer dans notre API REST un autre service web.
+Notre Marketplace aimerait mettre en avant une sélection de jeux Free-to-Play, pour cela vous avez identifié un service FreeToGame.
+Créez une nouvelle ressources /f2p-games et utilisez fetch pour récupérer les résultats sur le service web au lieu de la base de donnée. (Seulement les requêtes GET / et GET /:id sont à faire ici).
+Exercice 3 : Réaliser un vrai système de recherche
+Pour aller plus loin, réalisez un système de recherche sur la ressource /products. Ajouter des paramètres à envoyer pour mieux filtrer la liste des produits par exemple :
+/products?name=game pour retrouver tous les jeux ayant dans leur titre "game".
+/products?about=fps pour retrouver tous les jeux ayant dans leur "about" le mot "fps".
+/products?price=30 pour retrouver tous les jeux ayant un prix inférieur ou égal à 30 euros.
+N'hésitez pas à consulter la documentation de la librairie postgres pour réaliser les queries SQL :
+https://www.npmjs.com/package/postgres#building-queries
+Exercice 4 : Réaliser un système de panier
+Pour aller plus loin, réalisez un système de panier avec une nouvelle ressource "Orders".
+Pour cela la ressource doit posséder les éléments suivants :
+userId et productIds - L'id de l'user et des produits
+total - Le total qui est le prix des produits * 1.2 (TVA)
+payment - Boolean par défaut à false pour l'état du paiement
+createdAt - La date de création de la commande
+updatedAt - La date de la dernière modification de la commande
+La logique de paiement n'est pas attendu, toutes les méthodes REST sont à faire et il faut renvoyer l'user et les produits complet avec la méthode GET.
+Exercice 5 : Réaliser un système d'avis
+Maitenant que l'on a des achats, réalisez un système d'avis avec une nouvelle ressource "Reviews". Pour cela la ressource doit posséder les éléments suivants :
+userId et productId - L'id de l'user et du produit
+score - Entre 1 à 5
+content - Le message associé à l'avis
+createdAt - La date de création de l'avis
+updatedAt - La date de la dernière modification de l'avis
+Il faut aussi mettre à jour la ressource "products" pour lui ajouter les ids des reviews et le score total à chaque création d'une review et permettre que lorsque l'on réalise un GET d'un produit, que l'on reçoit dans la donnée du produit, les reviews aussi.
+Exercice 6 Bonus : Intégrer un système de documentation
+Pour aller plus loin, intégrer la solution Swagger à votre API pour documenter votre service web REST.
+La documentation est primordiale pour une API REST pour permettre aux clients de vraiment connaître les cas d'erreurs, les comportements et résultats de vos ressources.

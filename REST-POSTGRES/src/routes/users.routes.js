@@ -5,36 +5,11 @@ const { CreateUserSchema, PatchUserSchema } = require("../schemas/user.schema");
 
 const router = express.Router();
 
-/**
- * @swagger
- * /users:
- *   get:
- *     summary: Get all users (without passwords)
- *     responses:
- *       200:
- *         description: List of users
- */
 router.get("/", async (req, res) => {
   const users = await sql`SELECT id, username, email FROM users`;
   res.send(users);
 });
 
-/**
- * @swagger
- * /users/{id}:
- *   get:
- *     summary: Get a user by ID (without password)
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       200:
- *         description: User
- *       404:
- *         description: Not found
- */
 router.get("/:id", async (req, res) => {
   const user = await sql`SELECT id, username, email FROM users WHERE id = ${req.params.id}`;
 
@@ -45,29 +20,6 @@ router.get("/:id", async (req, res) => {
   res.send(user[0]);
 });
 
-/**
- * @swagger
- * /users:
- *   post:
- *     summary: Create a user
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               username: { type: string }
- *               password: { type: string, minLength: 8 }
- *               email: { type: string, format: email }
- *     responses:
- *       200:
- *         description: Created user (without password)
- *       400:
- *         description: Validation error
- *       409:
- *         description: Username or email already taken
- */
 router.post("/", async (req, res) => {
   const result = CreateUserSchema.safeParse(req.body);
 
@@ -92,36 +44,6 @@ router.post("/", async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /users/{id}:
- *   put:
- *     summary: Replace a user (all fields required)
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               username: { type: string }
- *               password: { type: string, minLength: 8 }
- *               email: { type: string, format: email }
- *     responses:
- *       200:
- *         description: Updated user (without password)
- *       400:
- *         description: Validation error
- *       404:
- *         description: Not found
- *       409:
- *         description: Username or email already taken
- */
 router.put("/:id", async (req, res) => {
   const result = CreateUserSchema.safeParse(req.body);
 
@@ -152,36 +74,6 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /users/{id}:
- *   patch:
- *     summary: Partially update a user
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               username: { type: string }
- *               password: { type: string, minLength: 8 }
- *               email: { type: string, format: email }
- *     responses:
- *       200:
- *         description: Updated user (without password)
- *       400:
- *         description: Validation error
- *       404:
- *         description: Not found
- *       409:
- *         description: Username or email already taken
- */
 router.patch("/:id", async (req, res) => {
   const result = PatchUserSchema.safeParse(req.body);
 
@@ -215,22 +107,6 @@ router.patch("/:id", async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /users/{id}:
- *   delete:
- *     summary: Delete a user
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       200:
- *         description: Deleted user (without password)
- *       404:
- *         description: Not found
- */
 router.delete("/:id", async (req, res) => {
   const user = await sql`
     DELETE FROM users WHERE id = ${req.params.id} RETURNING id, username, email

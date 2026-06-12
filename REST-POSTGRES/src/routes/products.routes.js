@@ -4,28 +4,6 @@ const { CreateProductSchema } = require("../schemas/product.schema");
 
 const router = express.Router();
 
-/**
- * @swagger
- * /products:
- *   get:
- *     summary: Get all products (with optional filters)
- *     parameters:
- *       - in: query
- *         name: name
- *         schema: { type: string }
- *         description: Filter by name (contains)
- *       - in: query
- *         name: about
- *         schema: { type: string }
- *         description: Filter by description (contains)
- *       - in: query
- *         name: price
- *         schema: { type: number }
- *         description: Filter by max price
- *     responses:
- *       200:
- *         description: List of products
- */
 router.get("/", async (req, res) => {
   const { name, about, price } = req.query;
 
@@ -44,22 +22,6 @@ router.get("/", async (req, res) => {
   res.send(products);
 });
 
-/**
- * @swagger
- * /products/{id}:
- *   get:
- *     summary: Get a product by ID (includes reviews)
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       200:
- *         description: Product with reviews
- *       404:
- *         description: Not found
- */
 router.get("/:id", async (req, res) => {
   const product = await sql`SELECT * FROM products WHERE id = ${req.params.id}`;
 
@@ -71,27 +33,6 @@ router.get("/:id", async (req, res) => {
   res.send({ ...product[0], reviews });
 });
 
-/**
- * @swagger
- * /products:
- *   post:
- *     summary: Create a product
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name: { type: string }
- *               about: { type: string }
- *               price: { type: number }
- *     responses:
- *       200:
- *         description: Created product
- *       400:
- *         description: Validation error
- */
 router.post("/", async (req, res) => {
   const result = CreateProductSchema.safeParse(req.body);
 
@@ -109,22 +50,6 @@ router.post("/", async (req, res) => {
   res.send(product[0]);
 });
 
-/**
- * @swagger
- * /products/{id}:
- *   delete:
- *     summary: Delete a product
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       200:
- *         description: Deleted product
- *       404:
- *         description: Not found
- */
 router.delete("/:id", async (req, res) => {
   const product = await sql`
     DELETE FROM products WHERE id = ${req.params.id} RETURNING *
